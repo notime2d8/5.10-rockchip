@@ -11,6 +11,8 @@
 #include <dt-bindings/soc/rockchip-io-domain.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/pinctrl/rockchip.h>
+#include <dt-bindings/display/rockchip_vop.h>
 #include "rk3399.dtsi"
 #include "rk3399-linux.dtsi"
 #include "rk3399-opp.dtsi"
@@ -250,6 +252,24 @@
 		pinctrl-0 = <&host_vbus_drv>;
 		regulator-name = "vcc5v0_host";
 		regulator-always-on;
+	};
+
+	/* Regulators supplied by vcc5v0_usb */
+	/* Type C port power supply regulator */
+	vbus_5vout: vbus_typec: vbus-5vout {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_typec0_en_pin>;
+		regulator-name = "vbus_5vout";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		vin-supply = <&vcc5v0_sys>;
+
+		regulator-state-mem {
+			regulator-off-in-suspend;
+		};
 	};
 
 	vdd_log: vdd-log {
@@ -984,45 +1004,16 @@
 &i2c4 {
 	status = "okay";
 	fusb0: fusb30x@22 {
-		compatible = "fairchild,fusb302";
+		compatible = "fcs,fusb302";
 		reg = <0x22>;
 		fusb302,role = "ROLE_MODE_DRP";
 		pinctrl-names = "default";
 		pinctrl-0 = <&fusb0_int>;
-		vbus-5v-gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;
-		int-n-gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <RK_PA2 GPIO_ACTIVE_LOW>;
+		vbus-supply = <&vbus_typec>;
 		status = "okay";
 	};
-	
-/*	cts3xxx@1a { 
-		compatible = "mediatek,cap_touch_cst";
-		reg = <0x1a>;
-			  cts,irq-gpio = <&gpio3 RK_PD7 GPIO_ACTIVE_LOW>;
-              cts,rst-gpio = <&gpio3 RK_PD6 GPIO_ACTIVE_HIGH>;
-	};
-*/
-
-	hynitron@1a{ 
-		compatible = "hynitron,hyn_ts";	
-		reg = <0x1a>;  					
-
-		interrupt-parent = <&gpio3>;
-		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
-
-		hynitron,irq-gpio = <&gpio3 RK_PD7 GPIO_ACTIVE_LOW>;
-		hynitron,reset-gpio = <&gpio3 RK_PD6 GPIO_ACTIVE_HIGH>;	
-		
-		hynitron,max-touch-number = <10>;			
-		hynitron,display-coords =  <1080 1920>;	
-
-		hynitron,have-key;
-		hynitron,key-number = <3>;	
-		hynitron,key-code = <139 172 158>; 	
-		hynitron,key-y-coord = <2000 2000 2000>; 
-		hynitron,key-x-coord = <200 600 800>;
-		status = "disable";
-	};
-
 
     gt9xx: gt9xx@14 {
         compatible = "goodix,gt9xx";
@@ -1083,20 +1074,16 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	#sound-dai-cells = <0>;
+	ddc-i2c-scl-high-time-ns = <9625>;
+	ddc-i2c-scl-low-time-ns = <10000>;	
 	status = "okay";
-	rockchip,phy-table =
-		<74250000 0x8009 0x0004 0x0272>,
-		<165000000 0x802b 0x0004 0x0209>,
-		<297000000 0x8039 0x0005 0x028d>,
-		<594000000 0x8039 0x0000 0x019d>,
-		<000000000 0x0000 0x0000 0x0000>;
 };
 
 &dsi {
 	status = "okay";
 
 	panel@0 {
-		compatible = "elida,kd35t133", "simple-panel-dsi";
+		compatible = "simple-panel-dsi";
 		reg = <0>;
 
 		/* pwm0 backlight */
@@ -1145,13 +1132,6 @@
 			05 78 01 11
 			05 78 01 29
 		];
-		
-		/*
-			39 00 05 BA 03 82 A0 ED
-			39 00 04 BF CF 00 46
-			05 78 01 11
-			05 78 01 29
-		*/
 
 		/* 28: DisplayOff */
 		/* 10: SleepIn */
@@ -1259,8 +1239,6 @@
 	disable-wp;
 	cap-sd-highspeed;
 	cap-sdio-irq;
-//	keep-power-in-suspend;
-//	mmc-pwrseq = <&sdio_pwrseq>;
 	card-detect-delay = <800>;
 	cd-gpios = <&gpio2 RK_PC1 GPIO_ACTIVE_LOW>; /*[> CD GPIO <]*/
 	num-slots = <1>;
@@ -1276,12 +1254,9 @@
 
 &sdhci {
 	bus-width = <8>;
-	//mmc-hs400-1_8v;
-	//mmc-hs400-enhanced-strobe;
 	mmc-hs200-1_8v;
 	supports-emmc;
 	non-removable;
-//	keep-power-in-suspend;
 	status = "okay";
 };
 
@@ -1456,6 +1431,12 @@
 		};
 	};
 
+	usb-typec {
+		vcc5v0_typec0_en_pin: vcc5v0-typec0-en-pin {
+			rockchip,pins = <1 RK_PA3 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+
 	usb2 {
 		host_vbus_drv: host-vbus-drv {
 			rockchip,pins =
@@ -1531,6 +1512,16 @@
 };
 
 &vopl_mmu {
+	status = "okay";
+};
+
+&vpu {
+	status = "okay";
+	/* 0 means ion, 1 means drm */
+	//allocator = <0>;
+};
+
+&vdec {
 	status = "okay";
 };
 
