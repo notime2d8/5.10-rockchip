@@ -382,4 +382,10 @@ config JOYSTICK_FSIA6B
 	  To compile this driver as a module, choose M here: the
 	  module will be called fsia6b.
 
+config JOYSTICK_SINGLEADCJOY
+	tristate "Single SARADC dual-joystick gamepad driver"
+	select INPUT_POLLDEV	
+	help
+	  The 1-in 4-out SARADC joypad driver.
+	  
 endif
