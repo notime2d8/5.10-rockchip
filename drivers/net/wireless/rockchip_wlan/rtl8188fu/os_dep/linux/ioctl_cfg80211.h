@@ -171,6 +171,7 @@ struct rtw_wdev_priv {
 
 	/* report mgmt_frame registered */
 	u16 report_mgmt;
+	u32 mgmt_regs;
 
 	u8 is_mgmt_tx;
 	u16 mgmt_tx_cookie;
